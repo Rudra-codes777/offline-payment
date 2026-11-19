@@ -1,29 +1,19 @@
 # Security assessment — prototype
 
-## Threats
-- Nearby malicious device impersonates a relay or sender.
-- BLE packet interception, replay, modification, or relay substitution.
-- Malicious relay changes amount or recipient before backend submission.
-- Replayed intents or reused IDs.
-- Backend endpoint abuse and denial of service.
-- Device loss, local queue extraction, and key compromise.
+## Implemented integrity control
+The sender creates a P-256 ECDSA key pair in Android Keystore. Each intent is signed with SHA256withECDSA over this canonical UTF-8 message:
+`id\nsenderId\nrecipientId\namount\ncreatedAt\nexpiresAt`.
+The public key and signature travel with the intent. The backend verifies the signature before accepting or storing the intent and rejects altered content. Private signing key material is non-exportable from Android Keystore on supported devices.
 
-## Controls currently present
-- UUID intent identifiers.
-- Backend validates amount constraints, sender/recipient difference, creation time, and expiry.
-- Backend compares the complete payload for a reused ID and rejects conflicting reuse.
-- Backend makes repeated identical accepted intents idempotent.
-- BLE GATT service UUID filters discovery; payload size is bounded.
+**Important trust limitation:** the public key is currently self-presented inside the intent. This proves that the payload was signed by the corresponding private key and detects tampering, but it does NOT prove that the key belongs to the claimed sender ID. A malicious client can create its own key and claim another sender ID. Real identity requires authenticated enrollment, verified account binding, key attestation where appropriate, and server-side key registration/revocation.
 
-## Missing controls (must not be represented as solved)
-- Authenticated device enrollment and authorization.
-- Sender digital signature verified against a server-registered public key.
-- Relay identity and mutual authentication.
-- Application-layer authenticated encryption with nonce/replay protection.
-- Android Keystore key generation, rotation, revocation, and recovery.
-- Enforced BLE bonding / secure connections and a receipt channel.
-- TLS with certificate validation between relay and backend.
-- Durable outbox and atomic receipt handling.
-- Rate limits, audit trails, monitoring, fraud detection, threat-model review, and penetration testing.
+## Remaining security work
+- Authenticated enrollment and server-side sender-key registry.
+- Mutual TLS or authenticated device tokens for relay-to-backend.
+- HTTPS in deployment; sample Android cleartext networking is for local development only.
+- Authenticated encryption and replay protection for BLE; signature does not encrypt payload.
+- Enforce bonded BLE connections with appropriate secure characteristics and test OEM behavior.
+- Signed backend receipt with a pinned server verification key, delivered back to sender.
+- Durable relay outbox, atomic receipt processing, rate limits, audit logs, monitoring, fraud detection, key rotation/revocation, and independent review.
 
-Do not use real financial data or money. The current BLE path is an educational transport proof-of-concept only.
+Do not use real financial data or money. This remains an educational simulation.
