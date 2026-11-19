@@ -1,47 +1,31 @@
-# Offline Payment
+# Offline Payment — Android + Spring Boot MVP
 
-An educational prototype exploring how a payment request could be transferred between Android devices without an internet connection, then securely relayed to a backend when connectivity becomes available.
+Educational simulation for creating a payment intent offline, storing it on Android, and syncing it later.
 
-> **Important:** This is a learning project. It does not connect to UPI, banks, payment networks, or move real money.
+> No UPI/bank integration or real-money transfer. Backend acceptance is not settlement.
 
-## Concept
+## Components
+- android/: Android Java offline queue and manual HTTP sync.
+- backend/: Spring Boot 3.4 / Java 17 REST API, H2 persistence, validation, expiry, idempotent relay.
+- protocol/: shared JSON schema.
+- docs/: architecture and security limitations.
 
-1. A sender creates a payment intent on an Android device while offline.
-2. A nearby relay device receives the intent over Bluetooth Low Energy (BLE).
-3. The relay forwards it to the backend when it has internet access.
-4. The backend validates the request, applies replay and duplicate protections, and records a simulated transaction.
-5. A receipt/confirmation is returned through the relay to the sender.
+## Backend
+Requires JDK 17+ and Maven:
 
-## Planned modules
+```bash
+cd backend
+mvn spring-boot:run
+```
+API runs at http://localhost:8080. H2 console: /h2-console.
 
-- `android-sender/` — Android app for creating and tracking offline payment intents.
-- `android-relay/` — Android app/service that transfers intents over BLE and syncs them online.
-- `backend/` — Spring Boot API for validation, idempotency, simulated ledger entries, and receipts.
-- `protocol/` — Message formats and protocol documentation.
-- `docs/` — Architecture, threat model, and implementation notes.
+## Android
+Open android/ in Android Studio, sync Gradle, and run on an emulator. Default API URL is http://10.0.2.2:8080/api/v1/payments. For a physical phone, use your computer's LAN IP. Create an intent while offline or with backend stopped, then tap Sync queue when reachable.
 
-## Security goals
+## API
+- POST /api/v1/payments — create pending intent.
+- POST /api/v1/payments/relay — accept relayed intent.
+- GET /api/v1/payments/{id} — read status.
 
-- Authenticated and integrity-protected messages.
-- Encryption for sensitive message contents.
-- Unique transaction identifiers and backend idempotency.
-- Expiry and replay protection.
-- Explicit handling of pending, accepted, rejected, and confirmed states.
-
-Cryptographic choices and key management will be documented and implemented using established platform/library primitives rather than custom cryptography.
-
-## Intended stack
-
-- Android (Java)
-- Bluetooth Low Energy (BLE)
-- Spring Boot / Java
-- PostgreSQL
-- Standard cryptographic libraries and Android Keystore where appropriate
-
-## Development status
-
-Early planning stage. The architecture, protocol, and individual modules will be implemented and tested incrementally.
-
-## Disclaimer
-
-This project is a simulated, educational prototype. Offline transfer of a message is not the same as guaranteed settlement. Do not use it for real payments or store real payment credentials.
+## Scope
+This is an MVP for offline storage + online sync, **not yet a Bluetooth implementation**. BLE GATT and a separate relay app are not included. See docs/ARCHITECTURE.md. Do not use real payment credentials or personal data.
