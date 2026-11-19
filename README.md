@@ -1,31 +1,41 @@
-# Offline Payment — Android + Spring Boot MVP
+# Offline Payment — Android BLE relay + Spring Boot simulation
 
-Educational simulation for creating a payment intent offline, storing it on Android, and syncing it later.
+A learning prototype demonstrating an offline-created payment intent transferred over Bluetooth Low Energy (BLE) to a nearby relay phone, then forwarded to a backend when the relay has internet.
 
-> No UPI/bank integration or real-money transfer. Backend acceptance is not settlement.
+> **Not real UPI. No bank integration, settlement, or real money movement. Do not enter payment credentials or sensitive personal data.**
 
-## Components
-- android/: Android Java offline queue and manual HTTP sync.
-- backend/: Spring Boot 3.4 / Java 17 REST API, H2 persistence, validation, expiry, idempotent relay.
-- protocol/: shared JSON schema.
-- docs/: architecture and security limitations.
+## Repository apps
+- `android/`: sender Android app. Creates an intent, stores it locally, scans for a BLE relay, and writes the intent to the relay GATT characteristic.
+- `android-relay/`: relay Android app. Advertises a BLE GATT service, receives a payment-intent payload, and forwards it to the backend over HTTP.
+- `backend/`: Spring Boot REST API with validation, persistence, expiry, and duplicate-intent handling.
+- `protocol/`: shared intent schema.
+- `docs/`: protocol, test plan, security analysis.
 
-## Backend
+## Run backend
 Requires JDK 17+ and Maven:
-
 ```bash
 cd backend
 mvn spring-boot:run
 ```
-API runs at http://localhost:8080. H2 console: /h2-console.
+Backend: `http://localhost:8080`. H2 in-memory database is the default.
 
-## Android
-Open android/ in Android Studio, sync Gradle, and run on an emulator. Default API URL is http://10.0.2.2:8080/api/v1/payments. For a physical phone, use your computer's LAN IP. Create an intent while offline or with backend stopped, then tap Sync queue when reachable.
+## Run on two Android phones
+1. Open `android/` in Android Studio and install it on phone A (sender).
+2. Open `android-relay/` in a second Android Studio window and install it on phone B (relay).
+3. Ensure the backend is reachable from phone B. In the relay app, set the API URL to `http://YOUR_COMPUTER_LAN_IP:8080/api/v1/payments/relay`.
+4. Open the relay app on phone B and tap **Start relay**. Grant nearby-device Bluetooth permissions.
+5. On phone A, create an intent and tap **Send first queued intent over Bluetooth**. Grant scan/connect permissions and tap **Find relay and transfer**.
+6. Keep phone B connected to the internet. It forwards received intents to the backend.
+
+For emulator-to-host networking, use `10.0.2.2`; for physical devices, use the computer's LAN IP and a shared network.
+
+## BLE protocol
+Both apps use the same service and characteristic UUIDs in `android/.../BleContract.java` and `android-relay/.../MainActivity.java`. One JSON intent is sent in a single GATT write, limited to 480 bytes in this prototype.
 
 ## API
-- POST /api/v1/payments — create pending intent.
-- POST /api/v1/payments/relay — accept relayed intent.
-- GET /api/v1/payments/{id} — read status.
+- `POST /api/v1/payments` — create pending intent.
+- `POST /api/v1/payments/relay` — accept a relayed intent.
+- `GET /api/v1/payments/{id}` — retrieve status.
 
-## Scope
-This is an MVP for offline storage + online sync, **not yet a Bluetooth implementation**. BLE GATT and a separate relay app are not included. See docs/ARCHITECTURE.md. Do not use real payment credentials or personal data.
+## Important limitations
+This is a BLE transport demonstration, **not a secure payment system**. BLE pairing/bonding is not enforced; payload signatures and device enrollment are not implemented; relay-to-backend uses cleartext HTTP in the sample; there is no user authentication, authorization, key management, anti-fraud engine, or bank integration. A GATT write acknowledgement only means the BLE stack received the write; the sender app currently does not receive an authenticated backend receipt. These gaps must be fixed and tested before any sensitive or production use. See `docs/SECURITY.md` and `docs/TESTING.md`.
